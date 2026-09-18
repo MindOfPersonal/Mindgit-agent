@@ -119,7 +119,7 @@ node index.js --version       # toon de agent-versie
 `doctor` is de snelste manier om een probleem te vinden:
 
 ```
-[ OK ] Agent-versie — 2.0.0 (protocol 1.0)
+[ OK ] Agent-versie — 2.0.2 (protocol 1.0)
 [ OK ] Node.js — v22.23.2
 [ OK ] Git — git version 2.43.0
 [ OK ] Configuratie — coordinator http://server:3000

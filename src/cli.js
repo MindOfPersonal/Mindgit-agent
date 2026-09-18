@@ -135,7 +135,7 @@ function runStart() {
   const agent = new Agent(config, logger);
 
   const stop = (signal) => {
-    logger.info({ signal }, 'Signaal ontvangen');
+    logger.info(`Signaal ${signal} ontvangen`);
     agent.shutdown(0);
   };
   process.on('SIGINT', () => stop('SIGINT'));
@@ -144,18 +144,12 @@ function runStart() {
     logger.error({ err }, 'Onverwachte fout');
   });
   process.on('unhandledRejection', (reason) => {
-    logger.error({ reason: String(reason) }, 'Onbehandelde promise-rejection');
+    logger.error(`Onbehandelde promise-rejection: ${String(reason)}`);
   });
 
   logger.info(
-    {
-      coordinatorUrl: config.coordinatorUrl,
-      platform: process.platform,
-      arch: process.arch,
-      nodeVersion: process.version,
-      agentVersion: getLocalVersion(),
-    },
-    'MindGit Agent v2 gestart'
+    `MindGit Agent v${getLocalVersion()} gestart → ${config.coordinatorUrl} ` +
+      `(${process.platform}/${process.arch}, node ${process.version})`
   );
 
   agent.start();

@@ -72,29 +72,26 @@ function createLogger(config) {
       { level: config.logLevel, stream: pino.destination({ dest: config.logFile, mkdir: true, sync: false }) },
     ];
     if (usePretty) {
-      streams.push({
-        level: config.logLevel,
-        stream: require('pino-pretty')({
-          colorize: Boolean(process.stdout.isTTY),
-          translateTime: 'SYS:standard',
-          ignore: 'pid,hostname,name',
-        }),
-      });
+      streams.push({ level: config.logLevel, stream: require('pino-pretty')(prettyOptions()) });
     } else {
       streams.push({ level: config.logLevel, stream: process.stdout });
     }
     stream = pino.multistream(streams);
   } else if (usePretty) {
-    stream = require('pino-pretty')({
-      colorize: Boolean(process.stdout.isTTY),
-      translateTime: 'SYS:standard',
-      ignore: 'pid,hostname,name',
-    });
+    stream = require('pino-pretty')(prettyOptions());
   } else {
     stream = process.stdout;
   }
 
   return wrap(pino(options, stream));
+}
+
+function prettyOptions() {
+  return {
+    colorize: Boolean(process.stdout.isTTY),
+    translateTime: 'HH:MM:ss',
+    ignore: 'pid,hostname,name',
+  };
 }
 
 /** Stille logger (voor tests / CLI die zelf output doet). */

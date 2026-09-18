@@ -64,7 +64,7 @@ class Agent {
   connect() {
     if (this.shuttingDown) return;
     const wsUrl = this.wsUrl;
-    this.logger.info({ url: wsUrl, protocol: PROTOCOL_VERSION }, 'Verbinden met coordinator');
+    this.logger.debug(`Verbinden met ${wsUrl}`);
 
     try {
       this.ws = new WebSocket(wsUrl, {
@@ -76,7 +76,7 @@ class Agent {
         perMessageDeflate: false,
       });
     } catch (err) {
-      this.logger.error({ err }, 'Kon WebSocket niet aanmaken');
+      this.logger.error(`Kon WebSocket niet aanmaken: ${err.message}`);
       this.scheduleReconnect();
       return;
     }
@@ -98,11 +98,11 @@ class Agent {
         return;
       }
       if (!validateAgentMessage(msg)) {
-        this.logger.warn({ type: msg.type, correlationId: msg.correlationId }, 'Bericht met onbekend protocol/type genegeerd');
+        this.logger.warn(`Onbekend protocol/type genegeerd: ${msg.type}`);
         return;
       }
       this.handleMessage(msg).catch((err) => {
-        this.logger.error({ err }, 'Fout bij verwerken bericht');
+        this.logger.error(`Fout bij verwerken bericht: ${err.message}`);
       });
     });
 
@@ -113,7 +113,11 @@ class Agent {
 
     ws.on('close', (code, reason) => {
       const reasonText = reason ? reason.toString() : '';
-      this.logger.warn({ code, reason: reasonText }, 'Verbinding met coordinator verbroken');
+      if (!this.shuttingDown) {
+        this.logger.warn(`Verbinding verbroken${code ? ` (code ${code})` : ''}${reasonText ? `: ${reasonText}` : ''}`);
+      } else {
+        this.logger.debug(`Verbinding gesloten (code ${code})`);
+      }
       this.stopHeartbeat();
       this.stopPing();
       this.failActiveTasks('Node disconnected');
@@ -124,7 +128,7 @@ class Agent {
     });
 
     ws.on('error', (err) => {
-      this.logger.error({ err: err.message }, 'WebSocket-fout');
+      this.logger.error(`WebSocket-fout: ${err.message}`);
     });
   }
 
@@ -134,7 +138,7 @@ class Agent {
 
     const max = this.config.reconnectMaxAttempts;
     if (max > 0 && this.reconnectAttempts >= max) {
-      this.logger.error({ attempts: this.reconnectAttempts }, 'Maximale herverbindingspogingen bereikt, stoppen');
+      this.logger.error(`Maximale herverbindingspogingen bereikt (${this.reconnectAttempts}), stoppen`);
       process.exit(1);
     }
 
@@ -143,8 +147,7 @@ class Agent {
     this.reconnectAttempts++;
     const capped = Math.min(delay, 300000);
     this.logger.info(
-      { seconds: Math.round(capped / 1000), attempt: this.reconnectAttempts, max: max || 'oneindig' },
-      'Opnieuw verbinden'
+      `Opnieuw verbinden in ${Math.round(capped / 1000)}s (poging ${this.reconnectAttempts}${max ? `/${max}` : ''})`
     );
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
@@ -252,7 +255,7 @@ class Agent {
       this.ws.send(JSON.stringify(createMessage(type, payload, correlationId)));
       return true;
     } catch (err) {
-      this.logger.warn({ err: err.message }, 'Verzenden mislukt');
+      this.logger.warn(`Verzenden mislukt: ${err.message}`);
       return false;
     }
   }
@@ -265,7 +268,7 @@ class Agent {
         if (payload && payload.nodeId) {
           this.nodeId = payload.nodeId;
           this.nodeName = payload.name || null;
-          this.logger.info({ nodeId: payload.nodeId, name: payload.name }, 'Geregistreerd als node');
+          this.logger.info(`Geregistreerd als node "${payload.name || payload.nodeId}" (id ${payload.nodeId})`);
         }
         break;
 
@@ -293,7 +296,7 @@ class Agent {
       case MessageType.CANCEL_TASK: {
         const controller = this.activeControllers.get(correlationId);
         if (controller) {
-          this.logger.info({ correlationId }, 'Taak geannuleerd door coordinator');
+          this.logger.info(`Taak geannuleerd door coordinator (${correlationId})`);
           controller.abort();
           this.send(MessageType.TASK_FAILED, { error: 'Task cancelled', correlationId }, correlationId);
           this.finishTask(correlationId);
@@ -307,8 +310,21 @@ class Agent {
         break;
 
       default:
-        this.logger.warn({ type }, 'Onbekend berichttype');
+        this.logger.warn(`Onbekend berichttype: ${type}`);
     }
+  }
+
+  taskLabel(type, payload) {
+    const id = payload && payload.repoId !== undefined ? payload.repoId : '?';
+    const name = payload && payload.repoName ? ` "${payload.repoName}"` : '';
+    return `${type}${name} (repo ${id})`;
+  }
+
+  hasMeaningfulChanges(result) {
+    const logs = Array.isArray(result && result.logs) ? result.logs : [];
+    return logs.some(
+      (l) => l.type === 'success' || /^(Committed|Pulled|Pushed|Merged|Clone completed|Initial commit)/.test(l.msg || '')
+    );
   }
 
   // --- Taakuitvoering ------------------------------------------------------
@@ -334,13 +350,15 @@ class Agent {
     registerSecret(this.config.nodeKey);
 
     this.send(MessageType.TASK_STARTED, { repoId: payload.repoId, type }, correlationId);
-    this.logger.info({ type, repoId: payload.repoId, repoPath: payload.repoPath, correlationId }, 'Taak gestart');
+
+    const label = this.taskLabel(type, payload);
+    this.logger.debug(`Taak gestart: ${label}`);
 
     let timeoutTimer = null;
     if (!readOnly) {
       timeoutTimer = setTimeout(() => {
         if (!this.activeControllers.has(correlationId)) return;
-        this.logger.error({ type, correlationId }, 'Taak-timeout');
+        this.logger.error(`Taak-timeout: ${label}`);
         controller.abort();
         this.send(
           MessageType.TASK_FAILED,
@@ -358,13 +376,23 @@ class Agent {
 
       if (controller.signal.aborted) {
         this.send(MessageType.TASK_FAILED, { repoId: payload.repoId, error: 'Task cancelled', correlationId }, correlationId);
+        this.logger.warn(`Taak afgebroken: ${label}`);
       } else if (result.success) {
         this.send(MessageType.TASK_COMPLETED, { repoId: payload.repoId, ...result }, correlationId);
+        if (readOnly) {
+          this.logger.debug(`Taak klaar: ${label}`);
+        } else if (this.hasMeaningfulChanges(result)) {
+          this.logger.info(`Taak klaar: ${label}`);
+        } else {
+          this.logger.debug(`Taak klaar: ${label} (geen wijzigingen)`);
+        }
       } else {
         this.send(MessageType.TASK_FAILED, { repoId: payload.repoId, ...result }, correlationId);
+        if (readOnly) this.logger.debug(`Taak mislukt: ${label} — ${result.error || 'onbekende fout'}`);
+        else this.logger.error(`Taak mislukt: ${label} — ${result.error || 'onbekende fout'}`);
       }
     } catch (err) {
-      this.logger.error({ err, type, correlationId }, 'Fout bij uitvoeren taak');
+      this.logger.error(`Fout bij uitvoeren taak ${label}: ${err.message}`);
       if (this.activeControllers.has(correlationId)) {
         this.send(MessageType.TASK_FAILED, { repoId: payload.repoId, error: err.message, correlationId }, correlationId);
       }
@@ -443,12 +471,12 @@ class Agent {
       if (result && result.restart) {
         // De nieuwe bestanden staan op schijf; herstart zodat de nieuwe code
         // geladen wordt. De supervisor (systemd/nssm/launchd/PM2) start opnieuw.
-        this.logger.info({ version: result.remote }, 'Update toegepast; agent herstart voor de nieuwe versie');
+        this.logger.info(`Update toegepast (v${result.remote}); agent herstart`);
         this.stop();
         setTimeout(() => process.exit(1), 500);
       }
     } catch (err) {
-      this.logger.warn({ err: err.message }, 'Update-check mislukt');
+      this.logger.warn(`Update-check mislukt: ${err.message}`);
     } finally {
       this.updateRunning = false;
     }
