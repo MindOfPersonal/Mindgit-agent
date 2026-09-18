@@ -1,12 +1,12 @@
 {
   "name": "@mindgit/agent",
-  "version": "2.0.3",
-  "generatedAt": "2026-09-18T23:45:43.168Z",
+  "version": "2.0.4",
+  "generatedAt": "2026-09-18T23:53:29.925Z",
   "files": {
     "index.js": "0c38fc49a5dd6079461beafb07fae2636ac80c3934a9c9f7f56b8561479ebd29",
     "lib/agent-protocol.js": "af6f733e6dc5ecaeeb6b1396c9811f3ae4eada6628af7cc7ae26ee226416d4bc",
     "package-lock.json": "6fcb48e165d0420c384dd16687d224c2829b016a77a0c135134af2a3169c4caf",
-    "package.json": "6d39ea69c044a74fc91898c68925abd9642457e73e1ff0d8c80dc8a8a04a8900",
+    "package.json": "32b2a47b19294b4e7376bd383ae9dbd460fef2358108c76933451177d5ae1cd8",
     "src/agent.js": "83c30edc428bbc3e00a07e377f949cca65fb502046692dcd03172432416ed0c8",
     "src/cli.js": "1a8c19c4ebcb715c989362f2f9d19586e36bc9fc90e9de0f921a2ca1efa9f542",
     "src/config.js": "85aee46a0d9d0f7f23f1745ed612b7329d658ebbc0806bfcba3c409a2f74cc8e",
