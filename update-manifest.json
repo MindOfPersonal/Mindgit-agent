@@ -1,7 +1,7 @@
 {
   "name": "@mindgit/agent",
   "version": "2.0.2",
-  "generatedAt": "2026-09-18T22:57:57.815Z",
+  "generatedAt": "2026-09-18T23:01:18.874Z",
   "files": {
     "index.js": "0c38fc49a5dd6079461beafb07fae2636ac80c3934a9c9f7f56b8561479ebd29",
     "lib/agent-protocol.js": "af6f733e6dc5ecaeeb6b1396c9811f3ae4eada6628af7cc7ae26ee226416d4bc",
