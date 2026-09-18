@@ -28,9 +28,10 @@ function getGitVersion() {
 }
 
 class Agent {
-  constructor(config, logger) {
+  constructor(config, logger, deps = {}) {
     this.config = config;
     this.logger = logger;
+    this.checkForUpdates = deps.checkForUpdates || checkForUpdates;
     this.ws = null;
     this.nodeId = null;
     this.nodeName = null;
@@ -45,6 +46,7 @@ class Agent {
     this.currentTask = null;
     this.activeControllers = new Map();
     this.shuttingDown = false;
+    this.updateRunning = false;
     this.startedAt = Date.now();
   }
 
@@ -426,15 +428,30 @@ class Agent {
       this.logger.info('Auto-update uitgeschakeld');
       return;
     }
-    const run = () => {
-      checkForUpdates(this.config, this.logger).catch((err) => {
-        this.logger.warn({ err: err.message }, 'Update-check mislukt');
-      });
-    };
-    const first = setTimeout(run, 10000);
+    const first = setTimeout(() => this.runUpdateCheck(), 10000);
     if (first.unref) first.unref();
-    this.updateTimer = setInterval(run, this.config.updateInterval);
+    this.updateTimer = setInterval(() => this.runUpdateCheck(), this.config.updateInterval);
     if (this.updateTimer.unref) this.updateTimer.unref();
+  }
+
+  /** Voert één update-check uit; herstart het proces als er iets is toegepast. */
+  async runUpdateCheck() {
+    if (this.updateRunning || this.shuttingDown) return;
+    this.updateRunning = true;
+    try {
+      const result = await this.checkForUpdates(this.config, this.logger);
+      if (result && result.restart) {
+        // De nieuwe bestanden staan op schijf; herstart zodat de nieuwe code
+        // geladen wordt. De supervisor (systemd/nssm/launchd/PM2) start opnieuw.
+        this.logger.info({ version: result.remote }, 'Update toegepast; agent herstart voor de nieuwe versie');
+        this.stop();
+        setTimeout(() => process.exit(1), 500);
+      }
+    } catch (err) {
+      this.logger.warn({ err: err.message }, 'Update-check mislukt');
+    } finally {
+      this.updateRunning = false;
+    }
   }
 
   // --- Afsluiten -----------------------------------------------------------

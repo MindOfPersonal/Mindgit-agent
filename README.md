@@ -180,11 +180,27 @@ De agent werkt zichzelf bij vanuit de publieke repo
 3. Elk bestand wordt gedownload, **geverifieerd** en atomisch weggeschreven.
 4. Bij een fout worden alle wijzigingen teruggedraaid (`.bak`-backups).
 5. Is `package.json` gewijzigd, dan draait de agent best-effort `npm install`.
-6. De agent stopt; systemd/nssm/launchd start hem opnieuw.
+6. De agent stopt (exitcode 1); de **service** (systemd/nssm/launchd/PM2) start hem
+   automatisch opnieuw met de nieuwe code.
 
-> **Voor releases:** verhoog `version` in `package.json` en draai
-> `npm run manifest` om `update-manifest.json` opnieuw te genereren. Commit beide.
-> Zet alleen vertrouwde code in de repo — de agent voert die uit.
+> **Let op:** draait de agent handmatig (`node index.js`) zonder supervisor, dan
+> stopt hij na een update en moet je hem zelf opnieuw starten. Gebruik voor
+> automatische updates altijd de service uit het installatiescript.
+
+### Een update uitbrengen (checklist)
+
+1. Pas de code aan in deze repo.
+2. **Verhoog `version`** in `package.json` (hoger dan wat de nodes draaien,
+   bijv. `2.0.0` → `2.0.1`). Zonder versieverhoging ziet de agent géén update.
+3. Draai `npm run manifest` → werkt `update-manifest.json` bij (sha256 per bestand).
+4. Draai `npm test` (alles groen).
+5. `git add -A && git commit && git push` naar `MindOfPersonal/Mindgit-agent`
+   (branch `master`).
+6. De nodes pakken het vanzelf op (bij hun volgende check), of forceer het op een
+   node met `node index.js update` en herstart de service.
+
+> Zet alleen vertrouwde code in de repo — de agent voert die uit. Vergeet stap 2 en 3
+> niet: zonder nieuwe versie of manifest gebeurt er niets.
 
 ### Migreren van v1 naar v2
 

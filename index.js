@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Mindgit-agent
 'use strict';
 
 const { main } = require('./src/cli');
