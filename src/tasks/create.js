@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { isGitRepo, configureIdentity, getBranch, getRepoStatusInternal, git } = require('../git/repo');
+const { friendlyGitError } = require('../git/runner');
 
 /**
  * Maakt lokaal een nieuwe repo aan, koppelt de remote en pusht een eerste commit.
@@ -38,7 +39,7 @@ async function executeCreateTask(payload, runtime) {
 
     const branch = await getBranch(repoPath, gitCtx);
     const push = await git(repoPath, ['push', '-u', 'origin', branch], gitCtx, gitCtx.longTimeout);
-    if (!push.success) return { success: false, error: 'Push failed', details: push.stderr };
+    if (!push.success) return { success: false, error: friendlyGitError(push.stderr, 'Push failed'), details: push.stderr };
 
     const status = await getRepoStatusInternal(repoPath, remote, gitCtx);
     return { success: true, status, branch };

@@ -119,13 +119,35 @@ node index.js --version       # toon de agent-versie
 `doctor` is de snelste manier om een probleem te vinden:
 
 ```
-[ OK ] Agent-versie — 2.0.2 (protocol 1.0)
+[ OK ] Agent-versie — 2.0.7 (protocol 1.0)
 [ OK ] Node.js — v22.23.2
 [ OK ] Git — git version 2.43.0
 [ OK ] Configuratie — coordinator http://server:3000
 [ OK ] Coordinator bereikbaar — http://server:3000 (HTTP 200)
 [ OK ] WebSocket-endpoint — ws://server:3000/agent
 ```
+
+### Console
+
+Standaard schrijft de agent **JSON** naar stdout (ideaal voor systemd/journald).
+Op een terminal (of met `LOG_PRETTY=true`) krijg je een leesbare weergave:
+
+```
+  ╭────────────────────────────────────────╮
+  │ MindGit Agent v2.0.7                   │
+  │ coordinator  http://server:3000        │
+  │ platform     linux/x64 · node v22.23.2 │
+  ╰────────────────────────────────────────╯
+
+02:06:14 INFO  Verbonden met coordinator
+02:06:14 INFO  Geregistreerd als node "Mijn PC" (id 3)
+02:07:02 INFO  Taak klaar: sync "cambuur" (repo 59) — Merged 2 commits, Pushed 1 commits
+```
+
+- Routinematige read-only queries (dashboard-poll) staan op **debug** en zijn dus
+  onzichtbaar op het standaard `info`-niveau. Zet `LOG_LEVEL=debug` om ze te zien.
+- `NO_COLOR=1` schakelt kleur uit; `LOG_FILE` schrijft daarnaast JSON naar een bestand.
+- Vriendelijke foutmeldingen: `Taak mislukt: sync "cambuur" (repo 59) — Repository niet gevonden op GitHub`.
 
 ---
 

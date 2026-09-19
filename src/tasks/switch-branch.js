@@ -1,6 +1,7 @@
 'use strict';
 
 const { getBranch, git } = require('../git/repo');
+const { friendlyGitError } = require('../git/runner');
 
 async function executeSwitchBranchTask(payload, runtime) {
   const { repoPath, branch } = payload;
@@ -10,7 +11,7 @@ async function executeSwitchBranchTask(payload, runtime) {
 
   const result = await git(repoPath, ['checkout', branch], gitCtx, gitCtx.longTimeout);
   if (!result.success) {
-    return { success: false, error: `Failed to switch to ${branch}`, details: result.stderr };
+    return { success: false, error: friendlyGitError(result.stderr, `Failed to switch to ${branch}`), details: result.stderr };
   }
   const current = await getBranch(repoPath, gitCtx);
   return { success: true, current };

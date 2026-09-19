@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { runGit } = require('./runner');
+const { runGit, friendlyGitError } = require('./runner');
 
 const GIT_USER_EMAIL = 'mindframework@auto.sync';
 const GIT_USER_NAME = 'MindFramework Auto-Sync';
@@ -78,7 +78,7 @@ async function ensureRepoPresent(payload, emitProgress, ctx) {
       signal: ctx.signal,
     });
     if (!clone.success) {
-      return { error: 'Clone failed', details: clone.stderr };
+      return { error: friendlyGitError(clone.stderr, 'Clone failed'), details: clone.stderr };
     }
     emitProgress('Clone completed', 'success');
   }

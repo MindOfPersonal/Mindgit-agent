@@ -9,6 +9,7 @@ const {
   getRepoStatusInternal,
   git,
 } = require('../git/repo');
+const { friendlyGitError } = require('../git/runner');
 const { TaskAction } = require('../../lib/agent-protocol');
 
 /**
@@ -41,7 +42,7 @@ async function executeSyncTask(payload, runtime) {
       emit('Fetching from origin...', 'info');
       const fetchResult = await git(repoPath, 'fetch origin', gitCtx, gitCtx.longTimeout);
       if (!fetchResult.success) {
-        return { success: false, error: 'Fetch failed', details: fetchResult.stderr, logs };
+        return { success: false, error: friendlyGitError(fetchResult.stderr, 'Fetch failed'), details: fetchResult.stderr, logs };
       }
       emit('Fetch completed', 'success');
     }
@@ -63,7 +64,7 @@ async function executeSyncTask(payload, runtime) {
             runtime.onConflict(files);
             return { success: false, error: 'Merge conflict', conflictFiles: files, logs };
           }
-          return { success: false, error: 'Pull failed', details: pullResult.stderr, logs };
+          return { success: false, error: friendlyGitError(pullResult.stderr, 'Pull failed'), details: pullResult.stderr, logs };
         }
         emit(`Merged ${behindCount} commits`, 'success');
       }
@@ -87,7 +88,7 @@ async function executeSyncTask(payload, runtime) {
         emit(`Pushing ${aheadAfterCount} commits...`, 'info');
         const pushResult = await git(repoPath, ['push', 'origin', branch], gitCtx, gitCtx.longTimeout);
         if (!pushResult.success) {
-          return { success: false, error: 'Push failed', details: pushResult.stderr, logs };
+          return { success: false, error: friendlyGitError(pushResult.stderr, 'Push failed'), details: pushResult.stderr, logs };
         }
         emit(`Pushed ${aheadAfterCount} commits`, 'success');
       }

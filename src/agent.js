@@ -320,11 +320,12 @@ class Agent {
     return `${type}${name} (repo ${id})`;
   }
 
-  hasMeaningfulChanges(result) {
+  changeSummary(result) {
     const logs = Array.isArray(result && result.logs) ? result.logs : [];
-    return logs.some(
-      (l) => l.type === 'success' || /^(Committed|Pulled|Pushed|Merged|Clone completed|Initial commit)/.test(l.msg || '')
-    );
+    return logs
+      .filter((l) => l.type === 'success' && /^(Committed|Pulled|Pushed|Merged|Clone completed|Initial commit)/.test(l.msg || ''))
+      .map((l) => l.msg)
+      .join(', ');
   }
 
   // --- Taakuitvoering ------------------------------------------------------
@@ -381,10 +382,10 @@ class Agent {
         this.send(MessageType.TASK_COMPLETED, { repoId: payload.repoId, ...result }, correlationId);
         if (readOnly) {
           this.logger.debug(`Taak klaar: ${label}`);
-        } else if (this.hasMeaningfulChanges(result)) {
-          this.logger.info(`Taak klaar: ${label}`);
         } else {
-          this.logger.debug(`Taak klaar: ${label} (geen wijzigingen)`);
+          const summary = this.changeSummary(result);
+          if (summary) this.logger.info(`Taak klaar: ${label} — ${summary}`);
+          else this.logger.debug(`Taak klaar: ${label} (geen wijzigingen)`);
         }
       } else {
         this.send(MessageType.TASK_FAILED, { repoId: payload.repoId, ...result }, correlationId);
@@ -410,6 +411,7 @@ class Agent {
     const emitProgress = (msg, progressType = 'info') => {
       logs.push({ msg, type: progressType, timestamp: Date.now() });
       this.send(MessageType.TASK_PROGRESS, { repoId: payload.repoId, msg, type: progressType, logs }, correlationId);
+      this.logger.debug(`  · ${msg}`);
     };
 
     const gitCtx = makeCtx({

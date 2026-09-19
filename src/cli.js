@@ -5,7 +5,7 @@ const { spawnSync } = require('child_process');
 const { Command } = require('commander');
 
 const { AGENT_ROOT, loadConfig, safeLoadConfig, envFilePath, envFileExists } = require('./config');
-const { createLogger } = require('./logger');
+const { createLogger, isPrettyEnabled, colorEnabled } = require('./logger');
 const { Agent, getGitVersion } = require('./agent');
 const { getLocalVersion } = require('./version');
 const { checkForUpdates, remoteRawUrl } = require('./update/updater');
@@ -16,9 +16,44 @@ const OK = 'OK';
 const WARN = 'WAARSCHUWING';
 const FAIL = 'FOUT';
 
+const C = {
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  cyan: '\x1b[36m',
+};
+
+function paint(code, s) {
+  return colorEnabled() ? `${code}${s}${C.reset}` : s;
+}
+
+function stripAnsi(s) {
+  return String(s).replace(/\x1b\[[0-9;]*m/g, '');
+}
+
 function line(status, label, detail) {
   const tag = status === OK ? '[ OK ]' : status === WARN ? '[WARN]' : '[FAIL]';
-  return `${tag} ${label}${detail ? ` — ${detail}` : ''}`;
+  const tagColor = status === OK ? C.green : status === WARN ? C.yellow : C.red;
+  const suffix = detail ? ` ${paint(C.dim, '—')} ${detail}` : '';
+  return `${paint(tagColor, tag)} ${paint(C.bold, label)}${suffix}`;
+}
+
+function printBanner(config) {
+  const rows = [
+    paint(C.bold, `MindGit Agent v${getLocalVersion()}`),
+    `${paint(C.dim, 'coordinator')}  ${config.coordinatorUrl}`,
+    `${paint(C.dim, 'platform')}     ${process.platform}/${process.arch} · node ${process.version}`,
+  ];
+  const width = Math.max(...rows.map((r) => stripAnsi(r).length));
+  const top = `  ${paint(C.cyan, `╭${'─'.repeat(width + 2)}╮`)}`;
+  const bottom = `  ${paint(C.cyan, `╰${'─'.repeat(width + 2)}╯`)}`;
+  const body = rows
+    .map((r) => `  ${paint(C.cyan, '│')} ${r}${' '.repeat(width - stripAnsi(r).length)} ${paint(C.cyan, '│')}`)
+    .join('\n');
+  process.stdout.write(`\n${top}\n${body}\n${bottom}\n\n`);
 }
 
 async function checkCoordinator(url) {
@@ -89,9 +124,13 @@ async function runDoctor() {
     }
   }
 
-  process.stdout.write('\nMindGit Agent — doctor\n\n');
+  const summary =
+    critical === 0
+      ? paint(C.green, 'Alles ziet er goed uit.')
+      : paint(C.red, `${critical} kritiek probleem(en) gevonden.`);
+  process.stdout.write(`\n${paint(C.bold, `MindGit Agent v${getLocalVersion()} — doctor`)}\n\n`);
   for (const r of results) process.stdout.write(r + '\n');
-  process.stdout.write(`\n${critical === 0 ? 'Alles ziet er goed uit.' : `${critical} kritiek probleem(en) gevonden.`}\n`);
+  process.stdout.write(`\n${summary}\n`);
   return critical === 0 ? 0 : 1;
 }
 
@@ -147,10 +186,15 @@ function runStart() {
     logger.error(`Onbehandelde promise-rejection: ${String(reason)}`);
   });
 
-  logger.info(
-    `MindGit Agent v${getLocalVersion()} gestart → ${config.coordinatorUrl} ` +
-      `(${process.platform}/${process.arch}, node ${process.version})`
-  );
+  if (isPrettyEnabled(config)) {
+    printBanner(config);
+  } else {
+    logger.info(
+      `MindGit Agent v${getLocalVersion()} gestart → ${config.coordinatorUrl} ` +
+        `(${process.platform}/${process.arch}, node ${process.version})`
+    );
+  }
+  logger.debug(`coordinator=${config.coordinatorUrl} platform=${process.platform}/${process.arch} node=${process.version}`);
 
   agent.start();
   return 0;

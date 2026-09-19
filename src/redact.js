@@ -37,7 +37,11 @@ function redactValue(value, seen) {
   if (typeof value === 'string') return redactString(value);
   if (value === null || typeof value !== 'object') return value;
   if (value instanceof Error) {
-    return { name: value.name, message: redactString(value.message) };
+    return {
+      name: value.name,
+      message: redactString(value.message),
+      stack: value.stack ? redactString(value.stack) : undefined,
+    };
   }
   if (value instanceof Date) return value;
   if (Buffer.isBuffer(value)) return '[Buffer]';

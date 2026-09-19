@@ -18,6 +18,30 @@ const TRANSIENT_PATTERNS = [
   /connection reset by peer/i,
 ];
 
+const FRIENDLY_ERRORS = [
+  { re: /could not read Username|Authentication failed|invalid username or password|HTTP 401|HTTP 403/i, msg: 'GitHub-authenticatie mislukt (token ongeldig of geen toegang)' },
+  { re: /Repository not found|HTTP 404|remote: Not Found/i, msg: 'Repository niet gevonden op GitHub' },
+  { re: /Could not resolve host|Temporary failure in name resolution/i, msg: 'Geen verbinding met GitHub (DNS)' },
+  { re: /Connection timed out|Operation timed out|timed out/i, msg: 'Time-out bij verbinden met GitHub' },
+  { re: /Permission denied \(publickey\)|could not read from remote repository/i, msg: 'Geen toegang tot de remote (SSH-sleutel of rechten)' },
+  { re: /remote: Permission to .* denied/i, msg: 'Geen toegang tot de repository op GitHub' },
+  { re: /not a git repository/i, msg: 'Geen geldige git-repository op dit pad' },
+  { re: /pathspec .* did not match/i, msg: 'Branch of pad niet gevonden' },
+  { re: /already exists/i, msg: 'Bestaat al' },
+];
+
+/** Vertaalt veelvoorkomende git-fouten naar een korte, begrijpelijke melding. */
+function friendlyGitError(stderr, fallback = 'Git-commando mislukt') {
+  const s = String(stderr || '');
+  for (const { re, msg } of FRIENDLY_ERRORS) {
+    if (re.test(s)) return msg;
+  }
+  const lines = s.split('\n').map((l) => l.trim()).filter(Boolean);
+  const specific = lines.find((l) => /^(fatal|error):/i.test(l)) || lines[lines.length - 1];
+  if (!specific) return fallback;
+  return specific.replace(/^(fatal|error):\s*/i, '');
+}
+
 function isTransientError(stderr) {
   const s = String(stderr || '');
   return TRANSIENT_PATTERNS.some((re) => re.test(s));
@@ -163,5 +187,6 @@ module.exports = {
   buildAuthArgs,
   tokenize,
   isTransientError,
+  friendlyGitError,
   delay,
 };
