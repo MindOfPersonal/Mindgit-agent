@@ -32,7 +32,12 @@ async function executeBrowseTask(payload, runtime) {
   const configuredRoots = agentBrowseRoots(runtime.config);
   const baseRoot = payload && payload.base ? path.resolve(String(payload.base)) : configuredRoots[0];
   const roots = payload && payload.base ? [baseRoot] : configuredRoots;
-  const requested = payload && payload.path ? String(payload.path) : baseRoot;
+  let requested = payload && payload.path ? String(payload.path) : baseRoot;
+
+  if (requested.match(/^[A-Za-z]:/) && !requested.includes('\\')) {
+    requested = requested.replace(/^([A-Za-z]):/, '$1:\\');
+  }
+
   const base = path.resolve(requested.replace(/[\\/]+$/, '') || baseRoot);
 
   if (!isWithinAgentRoots(base, roots)) {
