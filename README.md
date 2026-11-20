@@ -1,4 +1,4 @@
-# MindGit Agent v2
+# MindGit Agent v2 (MindDevelopment)
 
 De **agent** laat MindGit repositories synchroniseren op een andere machine (Windows,
 Linux of macOS). Hij praat via WebSocket met je MindGit-server (de **coordinator**) en
